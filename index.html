@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Archivio digitale interattivo di Paderno d'Adda e Robbiate. Foto storiche, mappe e ricostruzioni AI del paese nel tempo.">
+  <title>ArchivePaderno</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="brand">ArchivePaderno</div>
+    <nav class="top-nav">
+      <a href="#archivio" data-i18n="nav_archive">Carosello</a>
+      <a href="#mappa" data-i18n="nav_map">Mappa</a>
+      <a href="#galleria" data-i18n="nav_gallery">Galleria</a>
+      <a href="#galleria-ignoti" data-i18n="nav_unknown">Ignoti</a>
+    </nav>
+  </header>
+
+  <!-- Pannello lingua / tema -->
+  <div class="control-panel">
+    <button id="themeToggle" title="Cambia tema">
+      <span class="icon">🌙</span>
+    </button>
+    <div class="panel-divider"></div>
+    <button id="langToggle" title="Change language">
+      <span class="lang-text">IT</span>
+    </button>
+  </div>
+
+  <!-- Sfondo Hero -->
+  <div id="hero-background"></div>
+
+  <!-- Contenuto Principale -->
+  <main>
+
+    <!-- Sezione Intro -->
+    <section class="intro">
+      <p class="kicker" data-i18n="intro_kicker">Archivio Digitale / Paderno d’Adda</p>
+      <h1 data-i18n="intro_title">Il Paese nel Tempo</h1>
+      <p data-i18n="intro_desc">Un viaggio visivo tra le strade e i ricordi di Paderno d’Adda (LC). Foto storiche, ricostruzioni AI e il presente dello stesso luogo. Esplora come Paderno-Robbiate è cambiata nel corso dei decenni.</p>
+    </section>
+
+    <!-- Sezione Carosello -->
+    <section id="archivio" class="section filmstrip-section">
+      <div class="filmstrip-container">
+        <div class="filmstrip-track" id="filmstripTrack"></div>
+      </div>
+      <div class="filmstrip-nav">
+        <button id="prevBtn" class="nav-arrow" aria-label="Scorri a sinistra">←</button>
+        <button id="nextBtn" class="nav-arrow" aria-label="Scorri a destra">→</button>
+      </div>
+    </section>
+
+    <!-- Sezione Mappa -->
+    <section id="mappa" class="section">
+      <h2 class="section-title" data-i18n="title_map">Mappa dei Luoghi</h2>
+      <p class="section-desc" data-i18n="section_map_desc">Esplora i luoghi direttamente sulla mappa. Ogni pin apre un confronto fotografico. Il selettore temporale ti porta indietro fino al 1876!</p>
+      <div class="map-wrapper" id="mapWrapper">
+        <div id="map"></div>
+      </div>
+    </section>
+
+    <!-- Sezione Galleria -->
+    <section id="galleria" class="section">
+      <h2 class="section-title" data-i18n="title_gallery">Galleria Storica</h2>
+      <p class="section-desc" data-i18n="section_gallery_desc">Tutte le fotografie storiche raccolte in una galleria. Clicca per espandere ed esplorare i luoghi.</p>
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </section>
+
+    <!-- Sezione Foto da Identificare -->
+    <section id="galleria-ignoti" class="section unknown-section">
+      <h2 class="section-title" data-i18n="title_unknown">Foto da Identificare</h2>
+      <p class="section-desc" data-i18n="section_unknown_desc">Fotografie il cui luogo non è ancora stato individuato.</p>
+      <div class="gallery-grid" id="unknownGalleryGrid"></div>
+    </section>
+
+  </main>
+
+  <!-- Lightbox Viewer -->
+  <div id="lightbox" class="lightbox" hidden>
+    <button class="lightbox-close" aria-label="Chiudi">&times;</button>
+    <div class="lightbox-content">
+      <div class="lightbox-inner">
+        <h2 id="lightboxTitle" class="lightbox-place-title"></h2>
+        <div class="lightbox-viewer">
+          <button type="button" id="lightboxPrev" class="light-arrow" aria-label="Foto precedente">
+            <span class="light-arrow-icon" aria-hidden="true"></span>
+          </button>
+          <img id="lightboxImg" src="" alt="">
+          <button type="button" id="lightboxNext" class="light-arrow" aria-label="Foto successiva">
+            <span class="light-arrow-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+        <p id="lightboxState" class="lightbox-caption"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer e Modulo Contatti -->
+  <footer class="footer">
+
+    <div class="contact-section">
+      <h3 data-i18n="contact_title">Hai foto o ricordi da condividere?</h3>
+      <form class="contact-form" action="https://formspree.io/f/xwvzavkd" method="POST" enctype="multipart/form-data">
+        <div class="contact-col">
+          <input type="text" name="nome" data-i18n-placeholder="form_name" placeholder="Nome (opzionale)" aria-label="Nome (opzionale)">
+          <input type="email" name="email" data-i18n-placeholder="form_email" placeholder="Email (opzionale)" aria-label="Email (opzionale)">
+        </div>
+        <div class="contact-col">
+          <textarea name="messaggio" data-i18n-placeholder="form_message" placeholder="Messaggio o descrizione della foto…" aria-label="Messaggio o descrizione della foto"></textarea>
+        </div>
+        <div class="contact-col contact-col-actions">
+          <div class="contact-file-wrap">
+            <input type="file" name="allegato" accept="image/*" aria-label="Carica allegato fotografico">
+          </div>
+          <button type="submit" data-i18n="contact_send">Invia</button>
+        </div>
+      </form>
+      <p class="form-success" id="formSuccess" data-i18n="contact_thanks">
+        Grazie! Ho ricevuto il tuo messaggio.
+      </p>
+    </div>
+
+    <p>2026</p>
+
+  </footer>
+
+  <!-- Script Esterni e Logica -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+
+</body>
+</html>
