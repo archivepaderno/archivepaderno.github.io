@@ -138,7 +138,7 @@ h2 {
 
 .control-panel {
   position: fixed;
-  top: 75px;
+  top: 113px; /* header 57px + banner ~36px + margine */
   left: 2rem;
   display: flex;
   align-items: center;
@@ -503,14 +503,18 @@ h2 {
 }
 
 #lightboxImg {
+  /* w e h vengono impostati via JS (area normalizzata, ratio intatto per foto).
+     I max-* sono fallback prima che JS abbia misurato. */
   max-width: min(72vw, 1100px);
   max-height: 68vh;
-  object-fit: contain;
+  object-fit: fill; /* le dimensioni JS sono già esatte: niente bande, niente crop */
   border-radius: 8px;
   display: block;
   margin: 0 auto;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
   border: 1px solid #222;
+  /* Transizione morbida al cambio foto/luogo */
+  transition: width 0.15s ease, height 0.15s ease;
 }
 
 .light-arrow {
@@ -932,6 +936,77 @@ h2 {
   font-size: 0.85rem;
   margin-top: 0.8rem;
   text-align: center;
+}
+
+/* Banner lavori in corso */
+
+.wip-banner {
+  position: fixed;
+  top: 57px; /* sotto l'header */
+  left: 0;
+  width: 100%;
+  z-index: 998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 0.7rem 3.5rem 0.7rem 1.5rem;
+  background: #a86a00;
+  border-bottom: 1px solid #7a4d00;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: 0.2px;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.wip-banner.hidden {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+.wip-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  animation: wip-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes wip-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.wip-text {
+  text-align: center;
+  line-height: 1.5;
+}
+
+.wip-close {
+  position: absolute;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.wip-close:hover {
+  color: #fff;
+}
+
+:root.light .wip-banner {
+  background: #b87200;
+  border-bottom-color: #8a5500;
+  color: #fff;
+}
+
+:root.light .wip-close {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 /* Responsive tablet */

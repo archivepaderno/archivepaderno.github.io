@@ -8,18 +8,19 @@ const placesData = [
         showInCarousel: false, showInMap: false, showInGallery: true,
         photos: [
             { src: "foto/aerea_1.jpg", label: "Vista dell'Imec (1962)", label_en: "View of Imec (1962)" },
-            { src: "foto/aerea_2.jpg", label: "Vista del Monte Robbio e del paese (ca. 1970)", label_en: "View of Mount Robbio and the village (ca. 1970)" },
-            { src: "foto/aerea_3.jpg", label: "Vista dell'Adda (1931)", label_en: "View of Adda river (1931)" },
-            { src: "foto/aerea_ai_3.png", label: "Ricostruzione AI", label_en: "AI Reconstruction" }
+            { src: "foto/aerea_2.jpg", label: "Vista del Monte Robbio e del paese (ca. 1970)", label_en: "View of Mount Robbio and the village (ca. 1970)" }
         ]
     },
     {
         title: "Monte Robbio", title_en: "Mount Robbio",
-        lat: 0, lng: 0,
-        flatPhotos: true,
-        showInCarousel: false, showInMap: false, showInGallery: true,
+        lat: 45.690693, lng: 9.448471,
+        showInCarousel: false, showInMap: true, showInGallery: true,
         photos: [
-            { src: "foto/panorama.jpg", label: "Vista di Paderno e Robbiate dal Monte Robbio (ca. 1905)", label_en: "View of Paderno and Robbiate from Mount Robbio (ca. 1905)" }
+            { src: "foto/robbio_ieri_2.webp", label: "Ieri (ca. 1905)", label_en: "Then (ca. 1905)" },
+            { src: "foto/robbio_ai_2.webp", label: "Ricostruzione AI", label_en: "AI Reconstruction" },
+            { src: "foto/robbio_oggi_2.webp", label: "Oggi", label_en: "Now" },
+            { src: "foto/robbio_ieri_1.webp", label: "Ieri (1931)", label_en: "Then (1931)" },
+            { src: "foto/robbio_ai_1.webp", label: "Ricostruzione AI", label_en: "AI Reconstruction" }
         ]
     },
     {
@@ -116,9 +117,10 @@ const placesData = [
         lat: 45.688903, lng: 9.443735,
         showInCarousel: true, showInMap: true, showInGallery: true,
         photos: [
-            { src: "foto/fascio_ieri.png", label: "Ieri (ca. 1935)", label_en: "Then (ca. 1935)" },
-            { src: "foto/fascio_ai.png", label: "Ricostruzione AI", label_en: "AI Reconstruction" },
-            { src: "foto/fascio_oggi.png", label: "Oggi", label_en: "Now" }
+            { src: "foto/fascio_ieri_1.webp", label: "Ieri (ca. 1935) - 1", label_en: "Then (ca. 1935) - 1" },
+            { src: "foto/fascio_ieri_2.webp", label: "Ieri (ca. 1935) - 2", label_en: "Then (ca. 1935) - 2" },
+            { src: "foto/fascio_ai_2.webp", label: "Ricostruzione AI - 2", label_en: "AI Reconstruction - 2" },
+            { src: "foto/fascio_oggi_2.web", label: "Oggi - 2", label_en: "Now - 2" }
         ]
     },
     {
@@ -1160,6 +1162,117 @@ function swipeUpdateText(el, newText, direction) {
     el.addEventListener('animationend', onOutEnd);
 }
 
+// Cache delle dimensioni per luogo: placeKey -> Map<photoIndex, {w, h}>
+const lightboxPlaceSizeCache = new Map();
+
+/**
+ * Misura tutte le foto di un luogo e restituisce una Promise che si risolve
+ * con una Map photoIndex -> {w, h}.
+ *
+ * Strategia "area normalizzata, ratio intatto, qualità protetta":
+ *
+ * 1. Ogni foto viene scalata al massimo entro i limiti schermo (senza upscaling).
+ *    Questo dà l'area "disponibile" per ciascuna.
+ * 2. Si calcola la MEDIANA delle aree scalate come target.
+ *    La mediana è robusta agli outlier: una foto gigante o minuscola non
+ *    trascina la media in modo distorsivo.
+ * 3. Per ogni foto si calcolano le dimensioni a area=mediana col ratio nativo:
+ *    w = sqrt(areaTarget * ratio), h = sqrt(areaTarget / ratio)
+ * 4. CLAMP NATIVO: se le dimensioni calcolate superano le dimensioni native
+ *    della foto, si usa la dimensione nativa. Nessuna foto viene mai upscalata
+ *    oltre la sua risoluzione originale (evita sgranatura/pixelatura).
+ * 5. Clamp finale: se il risultato eccede comunque i limiti schermo, si scala
+ *    verso il basso proporzionalmente (ratio intatto).
+ */
+function measurePlacePhotos(place) {
+    const MAX_W = Math.min(window.innerWidth * 0.72, 1100);
+    const MAX_H = window.innerHeight * 0.68;
+
+    const promises = place.photos.map((photo, i) => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ i, w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = photo.src;
+    }));
+
+    return Promise.all(promises).then(sizes => {
+        const valid = sizes.filter(Boolean);
+        if (valid.length === 0) return null;
+
+        // Passo 1: scala ogni foto entro i limiti senza upscaling
+        const scaled = valid.map(({ i, w, h }) => {
+            const scale = Math.min(MAX_W / w, MAX_H / h, 1);
+            return { i, nativeW: w, nativeH: h, sw: w * scale, sh: h * scale, ratio: w / h };
+        });
+
+        // Passo 2: mediana delle aree scalate
+        const areas = scaled.map(s => s.sw * s.sh).sort((a, b) => a - b);
+        const mid = Math.floor(areas.length / 2);
+        const medianArea = areas.length % 2 === 1
+            ? areas[mid]
+            : (areas[mid - 1] + areas[mid]) / 2;
+
+        // Passi 3, 4, 5
+        const result = new Map();
+        scaled.forEach(({ i, nativeW, nativeH, ratio }) => {
+            let w = Math.sqrt(medianArea * ratio);
+            let h = Math.sqrt(medianArea / ratio);
+
+            // Passo 4 — clamp nativo: non superare la risoluzione originale
+            const nativeClamp = Math.min(nativeW / w, nativeH / h, 1);
+            w *= nativeClamp;
+            h *= nativeClamp;
+
+            // Passo 5 — clamp schermo
+            const screenClamp = Math.min(MAX_W / w, MAX_H / h, 1);
+            w = Math.round(w * screenClamp);
+            h = Math.round(h * screenClamp);
+
+            result.set(i, { w, h });
+        });
+
+        return result;
+    });
+}
+
+/**
+ * Applica le dimensioni specifiche della foto corrente all'elemento immagine
+ * del lightbox. Ogni foto del luogo ha le proprie dimensioni (area uguale,
+ * ratio intatto). Se non ancora in cache, misura e poi applica.
+ */
+function applyLightboxBoxForPlace(place, placeKey) {
+    const imgEl = document.getElementById('lightboxImg');
+    if (!imgEl) return;
+
+    const photoIdx = lightboxState.chain[lightboxState.chainPos];
+
+    function applySize(sizeMap) {
+        const size = sizeMap.get(photoIdx);
+        if (!size) return;
+        imgEl.style.width  = size.w + 'px';
+        imgEl.style.height = size.h + 'px';
+        imgEl.style.maxWidth  = '';
+        imgEl.style.maxHeight = '';
+    }
+
+    if (lightboxPlaceSizeCache.has(placeKey)) {
+        applySize(lightboxPlaceSizeCache.get(placeKey));
+        return;
+    }
+
+    // Prima apertura: rimuovi vincoli fissi finché non abbiamo la misura
+    imgEl.style.width  = '';
+    imgEl.style.height = '';
+
+    measurePlacePhotos(place).then(sizeMap => {
+        if (!sizeMap) return;
+        lightboxPlaceSizeCache.set(placeKey, sizeMap);
+        if (lightboxState.open && getLightboxPlaceKey() === placeKey) {
+            applySize(sizeMap);
+        }
+    });
+}
+
 function renderLightbox(options = {}) {
     const { swipeDir = null } = options;
     const place = getPlaceByContext(lightboxState);
@@ -1188,6 +1301,9 @@ function renderLightbox(options = {}) {
         }
         stateEl.textContent = state;
     }
+
+    // Aggiorna dimensioni: ogni foto ha la sua size (area uguale, ratio intatto)
+    applyLightboxBoxForPlace(place, placeKey);
 
     lightboxState.lastRenderedPlaceKey = placeKey;
     document.getElementById('lightboxImg').src = photo.src;
@@ -1729,4 +1845,25 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && !lightboxState.open) filmstripPaused = false;
     });
+
+    // Banner lavori in corso
+    const wipBanner = document.getElementById('wipBanner');
+    const wipClose = document.getElementById('wipClose');
+    const controlPanel = document.querySelector('.control-panel');
+
+    if (sessionStorage.getItem('wipDismissed')) {
+        wipBanner.classList.add('hidden');
+        if (controlPanel) controlPanel.style.top = '75px';
+    }
+
+    if (wipClose) {
+        wipClose.addEventListener('click', () => {
+            wipBanner.classList.add('hidden');
+            sessionStorage.setItem('wipDismissed', '1');
+            if (controlPanel) {
+                controlPanel.style.transition = 'top 0.4s ease';
+                controlPanel.style.top = '75px';
+            }
+        });
+    }
 });
